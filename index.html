@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LGS Pro Akademi - 2026 Tayfa</title>
+    <title>LGS Pro Akademi - V4 (Soru Bankası Modu)</title>
     
     <!-- React & ReactDOM -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.min.js"></script>
@@ -18,14 +18,8 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: {
-                        primary: '#4f46e5',
-                        secondary: '#0ea5e9',
-                    },
-                    fontFamily: {
-                        sans: ['Outfit', 'sans-serif'],
-                        brand: ['Fredoka', 'sans-serif'],
-                    }
+                    colors: { primary: '#4f46e5', secondary: '#0ea5e9' },
+                    fontFamily: { sans: ['Outfit', 'sans-serif'], brand: ['Fredoka', 'sans-serif'] }
                 }
             }
         }
@@ -43,31 +37,24 @@
         .hide-scroll::-webkit-scrollbar { display: none; }
         
         /* Loader */
-        .loader { border: 4px solid #e2e8f0; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        .loader { border: 5px solid #e2e8f0; border-top: 5px solid #4f46e5; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        .anim-fade { animation: fadeIn 0.5s ease-out; }
+        .anim-fade { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Metin Stilleri - Akıllı Tahta Okunabilirliği İçin */
+        /* Metin Stilleri */
         .readable-text strong { color: #4f46e5; font-weight: 800; }
-        .readable-text em { background-color: #fff7ed; color: #c2410c; font-style: normal; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
-        .readable-text ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1.5rem; }
-        .readable-text h3 { color: #1e293b; font-size: 1.5rem; font-weight: 800; margin-top: 2rem; border-bottom: 3px solid #e2e8f0; padding-bottom: 0.5rem; }
-        .readable-text p { margin-bottom: 1rem; line-height: 1.7; font-size: 1.1rem; }
-        
-        /* Kart */
-        .perspective-1000 { perspective: 1000px; }
-        .transform-style-3d { transform-style: preserve-3d; }
-        .backface-hidden { backface-visibility: hidden; }
-        .rotate-y-180 { transform: rotateY(180deg); }
+        .readable-text em { background-color: #fff7ed; color: #c2410c; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-style: normal;}
+        .readable-text ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+        .readable-text h3 { font-size: 1.4rem; font-weight: 800; margin-top: 1.5rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; color: #1e293b; }
     </style>
 </head>
 <body>
     <div id="root" class="h-screen w-full flex items-center justify-center bg-slate-50">
         <div class="text-center">
             <div class="loader mx-auto mb-4"></div>
-            <h2 class="text-xl font-bold text-slate-700">LGS Pro Yükleniyor...</h2>
+            <h2 class="text-2xl font-bold text-slate-700">LGS Pro Yükleniyor...</h2>
         </div>
     </div>
 
@@ -155,113 +142,226 @@
             } catch (e) { console.error(e); throw e; }
         };
 
-        // --- ALT BİLEŞENLER ---
+        // --- QUIZ RUNNER (TEST ÇÖZME EKRANI) ---
+        const QuizRunner = ({ apiKey, topic, config, goBack }) => {
+            const [questions, setQuestions] = useState(null);
+            const [currentQ, setCurrentQ] = useState(0);
+            const [score, setScore] = useState(0);
+            const [showAnswer, setShowAnswer] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [finished, setFinished] = useState(false);
+            const [error, setError] = useState(null);
 
-        const AICoach = ({ apiKey }) => {
-            const [isOpen, setIsOpen] = useState(false);
-            const [messages, setMessages] = useState([{ role: 'model', text: 'Selam LGS Tayfa! Ben senin koçunum. Nasıl gidiyor çalışmalar? 👋' }]);
-            const [input, setInput] = useState("");
-            const [loading, setLoading] = useState(false);
-            const scrollRef = useRef(null);
+            useEffect(() => {
+                const loadQuestions = async () => {
+                    if (!apiKey) return;
+                    try {
+                        let prompt = "";
+                        if (topic) {
+                            prompt = `8. Sınıf LGS "${topic}" konusu ile ilgili 5 adet çoktan seçmeli, zorlayıcı, yeni nesil soru hazırla. JSON formatında: { "questions": [ { "q": "Soru metni", "opts": ["A şıkkı", "B şıkkı", "C şıkkı", "D şıkkı"], "ans": 0 (doğru şık indexi 0-3), "exp": "Çözüm açıklaması" } ] }`;
+                        } else if (config) {
+                            prompt = `LGS ${config.type} denemesi için ${config.count} adet karma ve yeni nesil soru hazırla. JSON formatında: { "questions": [ { "q": "Soru metni (Ders adını da belirt)", "opts": ["A", "B", "C", "D"], "ans": 0, "exp": "Açıklama" } ] }`;
+                        }
+                        
+                        const res = await callGoogle(apiKey, DEFAULT_MODEL, prompt, 'json');
+                        let qData = res.questions || res;
+                        if(Array.isArray(qData)) {
+                            setQuestions(qData);
+                        } else {
+                            throw new Error("Format hatası");
+                        }
+                    } catch (e) {
+                        setError("Sorular hazırlanamadı. Lütfen tekrar dene.");
+                        console.error(e);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                loadQuestions();
+            }, [apiKey, topic, config]);
 
-            useEffect(() => { if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, isOpen]);
-
-            const send = async () => {
-                if (!input.trim() || !apiKey) return;
-                const userMsg = input.trim();
-                setMessages(p => [...p, { role: 'user', text: userMsg }]);
-                setInput(""); setLoading(true);
-                try {
-                    const history = messages.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
-                    history.push({ role: 'user', parts: [{ text: userMsg + " (LGS öğrencisine uygun, kısa, motive edici, emojili cevap ver)" }] });
-                    const res = await callGoogle(apiKey, DEFAULT_MODEL, history, 'text');
-                    setMessages(p => [...p, { role: 'model', text: res }]);
-                } catch(e) { setMessages(p => [...p, { role: 'model', text: "Hata oluştu kanka :(" }]); } 
-                finally { setLoading(false); }
+            const handleAnswer = (idx) => {
+                if (showAnswer) return;
+                setShowAnswer(true);
+                if (idx === questions[currentQ].ans) {
+                    setScore(score + 1);
+                }
             };
 
+            const nextQuestion = () => {
+                if (currentQ < questions.length - 1) {
+                    setCurrentQ(currentQ + 1);
+                    setShowAnswer(false);
+                } else {
+                    setFinished(true);
+                }
+            };
+
+            if (error) return (
+                <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                    <Icon name="alert-triangle" size={64} className="text-red-500 mb-4"/>
+                    <h3 className="text-xl font-bold mb-4">{error}</h3>
+                    <button onClick={goBack} className="bg-slate-200 px-6 py-3 rounded-xl font-bold">Geri Dön</button>
+                </div>
+            );
+
+            if (loading) return (
+                <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                    <div className="loader mb-6"></div>
+                    <h3 className="text-2xl font-bold text-indigo-700 animate-pulse">Yapay Zeka Soruları Hazırlıyor...</h3>
+                    <p className="text-slate-500 mt-2">Lütfen bekleyin, LGS moduna geçiliyor.</p>
+                </div>
+            );
+
+            if (finished) return (
+                <div className="h-full flex flex-col items-center justify-center p-6 text-center anim-fade">
+                    <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl border-4 border-indigo-100 max-w-lg w-full">
+                        <Icon name="trophy" size={80} className="text-yellow-500 mx-auto mb-6"/>
+                        <h2 className="text-4xl font-black text-slate-800 mb-2">Test Bitti!</h2>
+                        <div className="text-6xl font-black text-indigo-600 mb-4">{score} / {questions.length}</div>
+                        <p className="text-slate-500 text-lg mb-8 font-medium">
+                            {score === questions.length ? "Mükemmelsin Şampiyon! 🏆" : "Gayet iyi, çalışmaya devam! 💪"}
+                        </p>
+                        <button onClick={goBack} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-xl hover:bg-indigo-700 shadow-lg transition">Tamamla</button>
+                    </div>
+                </div>
+            );
+
+            const q = questions[currentQ];
+
             return (
-                <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-                    {isOpen && (
-                        <div className="bg-white w-80 h-96 rounded-2xl shadow-2xl border border-indigo-100 flex flex-col mb-4 overflow-hidden">
-                            <div className="bg-indigo-600 p-3 text-white flex justify-between font-bold"><span>🤖 LGS Koçun</span><button onClick={()=>setIsOpen(false)}>X</button></div>
-                            <div className="flex-1 overflow-auto p-3 space-y-2 bg-slate-50" ref={scrollRef}>
-                                {messages.map((m, i) => <div key={i} className={`p-2 rounded-xl text-sm ${m.role==='user'?'bg-indigo-100 ml-auto':'bg-white border mr-auto'}`} style={{maxWidth:'85%'}}>{m.text}</div>)}
-                                {loading && <div className="text-xs text-slate-400 p-2">Yazıyor...</div>}
-                            </div>
-                            <div className="p-2 border-t flex gap-2"><input value={input} onChange={e=>setInput(e.target.value)} className="flex-1 bg-slate-100 rounded-lg px-2 text-sm" placeholder="Mesaj yaz..." onKeyDown={e=>e.key==='Enter'&&send()}/><button onClick={send} className="p-2 bg-indigo-600 text-white rounded-lg"><Icon name="send" size={16}/></button></div>
+                <div className="h-full flex flex-col bg-slate-50 p-4 md:p-8 anim-fade">
+                    <div className="flex justify-between items-center mb-6">
+                        <button onClick={goBack} className="bg-white px-4 py-2 rounded-xl font-bold shadow text-slate-600 hover:text-red-500">Çıkış</button>
+                        <div className="bg-indigo-100 text-indigo-700 px-6 py-2 rounded-full font-black text-lg shadow-sm">
+                            Soru {currentQ + 1} / {questions.length}
                         </div>
-                    )}
-                    <button onClick={()=>setIsOpen(!isOpen)} className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:scale-110 transition border-4 border-white flex items-center justify-center">
-                        {isOpen ? <Icon name="x"/> : <Icon name="message-circle"/>}
-                    </button>
+                        <div className="font-bold text-emerald-600">Doğru: {score}</div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto max-w-4xl mx-auto w-full">
+                        <div className="bg-white p-6 md:p-10 rounded-[2rem] shadow-xl border-2 border-slate-100 mb-6">
+                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 block">SORU METNİ</span>
+                            <div className="text-xl md:text-2xl font-bold text-slate-800 leading-relaxed">
+                                {q.q}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 mb-6">
+                            {q.opts.map((opt, idx) => (
+                                <button 
+                                    key={idx} 
+                                    onClick={() => handleAnswer(idx)}
+                                    disabled={showAnswer}
+                                    className={`w-full text-left p-5 rounded-2xl border-2 text-lg font-medium transition-all duration-300 relative overflow-hidden
+                                        ${showAnswer 
+                                            ? (idx === q.ans 
+                                                ? 'bg-emerald-100 border-emerald-500 text-emerald-900' 
+                                                : (idx === q.ans ? 'opacity-100' : 'opacity-50 grayscale bg-slate-100'))
+                                            : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 hover:pl-8'
+                                        }
+                                    `}
+                                >
+                                    <span className="font-bold mr-3">{String.fromCharCode(65 + idx)})</span> {opt}
+                                    {showAnswer && idx === q.ans && <Icon name="check-circle" className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-600"/>}
+                                </button>
+                            ))}
+                        </div>
+
+                        {showAnswer && (
+                            <div className="bg-indigo-50 border-l-8 border-indigo-500 p-6 rounded-r-2xl mb-20 anim-fade">
+                                <h4 className="font-black text-indigo-700 mb-2 flex items-center gap-2"><Icon name="info"/> Çözüm Açıklaması:</h4>
+                                <p className="text-slate-700 text-lg leading-relaxed">{q.exp}</p>
+                                <button onClick={nextQuestion} className="mt-6 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-xl hover:bg-indigo-700 shadow-xl transition">
+                                    {currentQ < questions.length - 1 ? "Sıradaki Soruya Geç ➡" : "Testi Bitir 🏁"}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
         };
 
-        const Dashboard = ({ apiKey, setApiKey, goView, daysLeft }) => {
+        // --- DASHBOARD (ANA SAYFA) ---
+        const Dashboard = ({ apiKey, setApiKey, goView, daysLeft, startTrial }) => {
             const [keyInput, setKeyInput] = useState(apiKey || "");
+            const [trialType, setTrialType] = useState(null);
+
+            if (trialType) {
+                return (
+                    <div className="h-full p-6 flex flex-col items-center justify-center anim-fade">
+                        <button onClick={()=>setTrialType(null)} className="absolute top-6 left-6 bg-white p-3 rounded-full shadow"><Icon name="arrow-left"/></button>
+                        <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl max-w-lg w-full text-center border-4 border-indigo-50">
+                            <Icon name="file-badge" size={64} className="text-indigo-600 mx-auto mb-6"/>
+                            <h2 className="text-3xl font-black text-slate-800 mb-8">Deneme Sınavı Oluştur</h2>
+                            <div className="space-y-4 mb-8">
+                                <button onClick={()=>startTrial({type:'SAYISAL', count:20})} className="w-full p-5 bg-indigo-50 text-indigo-700 font-bold rounded-2xl border-2 border-indigo-100 hover:bg-indigo-600 hover:text-white transition text-lg flex items-center gap-3"><Icon name="calculator"/> Sayısal (Mat-Fen)</button>
+                                <button onClick={()=>startTrial({type:'SOZEL', count:20})} className="w-full p-5 bg-rose-50 text-rose-700 font-bold rounded-2xl border-2 border-rose-100 hover:bg-rose-600 hover:text-white transition text-lg flex items-center gap-3"><Icon name="book-open"/> Sözel (Tr-İnk-Din-İng)</button>
+                                <button onClick={()=>startTrial({type:'GENEL', count:20})} className="w-full p-5 bg-emerald-50 text-emerald-700 font-bold rounded-2xl border-2 border-emerald-100 hover:bg-emerald-600 hover:text-white transition text-lg flex items-center gap-3"><Icon name="layers"/> LGS Genel Deneme</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
             
             return (
                 <div className="flex flex-col items-center p-4 md:p-8 max-w-7xl mx-auto pb-24 anim-fade h-full overflow-y-auto">
                     <div className="text-center mb-8 md:mb-12">
-                        <div className="inline-block p-4 md:p-5 bg-white rounded-full shadow-lg mb-4 border-4 border-indigo-50"><Icon name="rocket" size={48} className="text-indigo-600 w-12 h-12 md:w-16 md:h-16"/></div>
+                        <div className="inline-block p-4 bg-white rounded-full shadow-lg mb-4 border-4 border-indigo-50"><Icon name="rocket" size={48} className="text-indigo-600"/></div>
                         <h1 className="text-4xl md:text-6xl font-black text-slate-800 brand mb-2 tracking-tight">LGS PRO AKADEMİ</h1>
                         <p className="text-indigo-600 font-bold tracking-widest text-sm md:text-lg">2026 EFSANE TAYFA</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 w-full mb-8 md:mb-12">
-                        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 md:p-10 text-white shadow-xl relative overflow-hidden h-52 md:h-64 flex flex-col justify-center transform transition hover:scale-[1.01]">
-                            <div className="text-indigo-200 text-sm md:text-base font-bold uppercase tracking-wider mb-2">Büyük Güne Kalan</div>
-                            <div className="text-6xl md:text-8xl font-black">{daysLeft}</div>
-                            <div className="text-xl md:text-2xl font-bold mt-1">GÜN</div>
-                            <Icon name="timer" className="absolute -right-8 -bottom-8 opacity-20 rotate-12 w-32 h-32 md:w-48 md:h-48 text-white"/>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8 md:mb-12">
+                        <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden h-64 flex flex-col justify-center">
+                            <div className="text-indigo-100 font-bold uppercase tracking-wider mb-2">Büyük Güne Kalan</div>
+                            <div className="text-7xl font-black">{daysLeft}</div>
+                            <div className="text-2xl font-bold mt-1">GÜN</div>
+                            <Icon name="timer" className="absolute -right-8 -bottom-8 opacity-20 w-48 h-48 text-white"/>
                         </div>
                         
-                        <div className="bg-white rounded-3xl p-6 md:p-10 shadow-xl border border-slate-100 h-52 md:h-64 flex flex-col justify-center relative overflow-hidden">
+                        <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border-2 border-slate-100 h-64 flex flex-col justify-center relative overflow-hidden">
                             {!apiKey ? (
-                                <div className="z-10 w-full max-w-md mx-auto">
-                                    <div className="flex items-center gap-2 text-orange-600 font-bold mb-3 md:mb-4 text-lg md:text-xl"><Icon name="key" size={24}/> Anahtar Gerekli</div>
-                                    <p className="text-xs md:text-sm text-slate-500 mb-4 font-medium">Sistemi kullanmak için Google Gemini API Anahtarını yapıştır:</p>
+                                <div className="z-10 w-full">
+                                    <div className="flex items-center gap-2 text-orange-600 font-bold mb-3 text-lg"><Icon name="key"/> Anahtar Gerekli</div>
                                     <div className="flex gap-2">
-                                        <input value={keyInput} onChange={e=>setKeyInput(e.target.value)} className="flex-1 border-2 border-slate-200 rounded-xl px-4 py-3 text-sm md:text-base outline-none focus:border-indigo-500 transition" placeholder="AIzaSy..."/>
-                                        <button onClick={()=>{if(keyInput){localStorage.setItem('lgs_key',keyInput); setApiKey(keyInput);}}} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold text-sm md:text-base hover:bg-indigo-700 active:scale-95 transition">KAYDET</button>
+                                        <input value={keyInput} onChange={e=>setKeyInput(e.target.value)} className="flex-1 border-2 border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-500" placeholder="AIzaSy..."/>
+                                        <button onClick={()=>{if(keyInput){localStorage.setItem('lgs_key',keyInput); setApiKey(keyInput);}}} className="bg-indigo-600 text-white px-6 rounded-xl font-bold">KAYDET</button>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="z-10 text-center w-full">
-                                    <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-6 py-3 rounded-full font-bold mb-6 text-lg"><Icon name="check-circle" size={24}/> Sistem Aktif</div>
-                                    <button onClick={()=>setApiKey("")} className="block w-full text-sm md:text-base text-slate-400 hover:text-red-500 underline font-medium">Anahtarı Değiştir</button>
+                                    <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-6 py-3 rounded-full font-bold mb-6 text-lg"><Icon name="check-circle"/> Sistem Aktif</div>
+                                    <button onClick={()=>setApiKey("")} className="block w-full text-slate-400 hover:text-red-500 underline font-medium">Anahtarı Değiştir</button>
                                 </div>
                             )}
-                            <div className="absolute top-0 right-0 w-32 h-32 md:w-48 md:h-48 bg-orange-50 rounded-full -mr-10 -mt-10 z-0"></div>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 w-full">
-                        {[
-                            { id: 'syllabus', title: 'DERSLER', icon: 'book-open', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
-                            { id: 'planner', title: 'PROGRAM', icon: 'calendar', color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
-                            { id: 'solver', title: 'SORU ÇÖZ', icon: 'help-circle', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-                            { id: 'compare', title: 'KIYASLA', icon: 'scale', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
-                            { id: 'history', title: 'TARİHSEL', icon: 'scroll', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
-                            { id: 'guidance', title: 'REHBERLİK', icon: 'heart-handshake', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
-                            { id: 'notebook', title: 'DEFTER', icon: 'edit-3', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-                            { id: 'quiz', title: 'TEST', icon: 'check-square', color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100' }
-                        ].map(item => (
-                            <button key={item.id} onClick={()=>goView(item.id)} className={`bg-white p-4 md:p-6 rounded-3xl shadow-lg hover:shadow-2xl hover:-translate-y-2 transition border-2 ${item.border} flex flex-col items-center gap-3 md:gap-4 group h-32 md:h-48 justify-center`}>
-                                <div className={`p-3 md:p-5 rounded-2xl ${item.bg} ${item.color} group-hover:scale-110 transition duration-300`}>
-                                    <Icon name={item.icon} className="w-8 h-8 md:w-10 md:h-10"/>
-                                </div>
-                                <span className="font-bold text-slate-700 text-sm md:text-lg tracking-wide">{item.title}</span>
-                            </button>
-                        ))}
+                        <button onClick={()=>goView('syllabus')} className="bg-white p-6 rounded-[2rem] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition border-b-8 border-indigo-100 h-48 flex flex-col items-center justify-center gap-3 group">
+                            <div className="bg-indigo-50 text-indigo-600 p-5 rounded-2xl group-hover:scale-110 transition"><Icon name="book-open" size={40}/></div>
+                            <span className="font-bold text-slate-700 text-lg">DERSLER</span>
+                        </button>
+                        <button onClick={()=>setTrialType(true)} className="bg-white p-6 rounded-[2rem] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition border-b-8 border-violet-100 h-48 flex flex-col items-center justify-center gap-3 group">
+                            <div className="bg-violet-50 text-violet-600 p-5 rounded-2xl group-hover:scale-110 transition"><Icon name="file-badge" size={40}/></div>
+                            <span className="font-bold text-slate-700 text-lg">DENEME ÇÖZ</span>
+                        </button>
+                        <button onClick={()=>goView('solver')} className="bg-white p-6 rounded-[2rem] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition border-b-8 border-blue-100 h-48 flex flex-col items-center justify-center gap-3 group">
+                            <div className="bg-blue-50 text-blue-600 p-5 rounded-2xl group-hover:scale-110 transition"><Icon name="help-circle" size={40}/></div>
+                            <span className="font-bold text-slate-700 text-lg">SORU ÇÖZDÜR</span>
+                        </button>
+                        <button onClick={()=>goView('planner')} className="bg-white p-6 rounded-[2rem] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition border-b-8 border-rose-100 h-48 flex flex-col items-center justify-center gap-3 group">
+                            <div className="bg-rose-50 text-rose-600 p-5 rounded-2xl group-hover:scale-110 transition"><Icon name="calendar" size={40}/></div>
+                            <span className="font-bold text-slate-700 text-lg">PROGRAM</span>
+                        </button>
                     </div>
                 </div>
             );
         };
 
-        const Syllabus = ({ apiKey, goBack, openModal }) => {
+        // --- DERSLER / MÜFREDAT (YENİLENMİŞ) ---
+        const Syllabus = ({ apiKey, goBack, openModal, startQuiz }) => {
             const [tab, setTab] = useState('MATEMATIK');
             const data = CURRICULUM[tab];
             
@@ -270,12 +370,9 @@
                 openModal({ type: 'loading' });
                 try {
                     let prompt = "";
-                    let type = "html";
                     if(action === 'analyze') prompt = `Konu: ${topic}. 8. Sınıf LGS için analiz et. Zorluk, çıkma ihtimali ve püf noktaları. HTML formatında şık bir özet.`;
                     else if(action === 'hap') prompt = `Konu: ${topic}. LGS için en önemli 5 hap bilgiyi maddeler halinde yaz. HTML ul-li formatı.`;
-                    else if(action === 'mnemonics') prompt = `Konu: ${topic}. Akılda kalıcı kodlamalar, hikayeler veya şifreler üret. HTML formatı.`;
-                    
-                    const res = await callGoogle(apiKey, DEFAULT_MODEL, prompt, type);
+                    const res = await callGoogle(apiKey, DEFAULT_MODEL, prompt, 'html');
                     openModal({ type: 'content', title: topic, content: res });
                 } catch(e) { openModal(null); alert("Hata: " + e.message); }
             };
@@ -284,7 +381,7 @@
                 <div className="h-full flex flex-col bg-slate-50 anim-fade">
                     <div className="bg-white p-4 md:p-6 shadow-sm flex items-center gap-4 z-10 sticky top-0">
                         <button onClick={goBack} className="bg-slate-100 p-3 rounded-xl hover:bg-slate-200"><Icon name="arrow-left" size={24}/></button>
-                        <h2 className="font-bold text-xl md:text-2xl text-slate-800">Konu Avcısı</h2>
+                        <h2 className="font-bold text-xl md:text-2xl text-slate-800">Dersler & Soru Bankası</h2>
                     </div>
                     <div className="p-4 md:p-6 overflow-x-auto whitespace-nowrap bg-white border-b hide-scroll">
                         {Object.keys(CURRICULUM).map(key => (
@@ -303,11 +400,17 @@
                                 <div className="divide-y divide-inherit bg-white/30">
                                     {u.topics.map(t => (
                                         <div key={t} className="p-5 hover:bg-white transition duration-300">
-                                            <div className="font-bold mb-4 text-lg md:text-xl text-slate-800">{t}</div>
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                <button onClick={()=>handleAction('analyze', t)} className="bg-white border-2 border-slate-200 py-3 rounded-xl text-sm font-bold hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition shadow-sm flex items-center justify-center gap-2"><Icon name="bar-chart-2" size={18}/> Analiz</button>
-                                                <button onClick={()=>handleAction('hap', t)} className="bg-white border-2 border-slate-200 py-3 rounded-xl text-sm font-bold hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600 transition shadow-sm flex items-center justify-center gap-2"><Icon name="pill" size={18}/> Hap Bilgi</button>
-                                                <button onClick={()=>handleAction('mnemonics', t)} className="bg-white border-2 border-slate-200 py-3 rounded-xl text-sm font-bold hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition shadow-sm flex items-center justify-center gap-2"><Icon name="lightbulb" size={18}/> Şifrele</button>
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                <div className="font-bold text-lg md:text-xl text-slate-800 flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${BUTTON_COLORS[tab].split(' ')[0]}`}></div>{t}</div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <button onClick={()=>handleAction('analyze', t)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 text-slate-600 flex items-center gap-2"><Icon name="bar-chart-2" size={16}/> Analiz</button>
+                                                    <button onClick={()=>handleAction('hap', t)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 text-slate-600 flex items-center gap-2"><Icon name="pill" size={16}/> Özet</button>
+                                                    
+                                                    {/* YENİ SORU ÇÖZ BUTONU */}
+                                                    <button onClick={()=>startQuiz(t)} className="px-6 py-2 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 shadow-md flex items-center gap-2 active:scale-95 transition">
+                                                        <Icon name="play-circle" size={20}/> SORU ÇÖZ
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -331,16 +434,14 @@
                     let prompt = "";
                     if(type === 'solver') prompt = `LGS Öğrencisiyim. Şu soruyu benim için adım adım, anlaşılır ve eğlenceli şekilde çöz: ${input}. HTML formatında çıktı ver.`;
                     else if(type === 'planner') prompt = `Günde ${input} saat çalışabilirim. Bana 8. sınıf LGS için haftalık ders çalışma programı yap. HTML tablo formatında.`;
-                    else if(type === 'compare') prompt = `Şu iki kavramı karşılaştır: ${input}. HTML formatında tablo yap.`;
-                    else if(type === 'guidance') prompt = `Şu anki ruh halim: ${input}. Bana bir rehber öğretmen gibi tavsiye ver. HTML formatı.`;
                     
                     const result = await callGoogle(apiKey, DEFAULT_MODEL, prompt, 'html');
                     setRes(result);
                 } catch(e) { alert("Hata: " + e.message); } finally { setLoading(false); }
             };
 
-            const titles = { solver: 'Soru Çözücü', planner: 'Akıllı Program', compare: 'Kıyasla', guidance: 'Rehberlik' };
-            const placeholders = { solver: 'Sorunu buraya yapıştır...', planner: 'Günde kaç saat çalışırsın? (Sadece sayı)', compare: 'Örn: Mitoz ve Mayoz', guidance: 'Nasıl hissediyorsun?' };
+            const titles = { solver: 'Soru Çözücü', planner: 'Akıllı Program' };
+            const placeholders = { solver: 'Sorunu buraya yapıştır...', planner: 'Günde kaç saat çalışırsın? (Sadece sayı)' };
 
             return (
                 <div className="h-full bg-slate-50 p-6 md:p-10 flex flex-col anim-fade">
@@ -358,121 +459,6 @@
                         <div className="flex-1 overflow-y-auto bg-slate-50 rounded-2xl p-6 border border-slate-200 shadow-inner">
                             {res ? <div className="prose prose-lg readable-text max-w-none" dangerouslySetInnerHTML={{__html: res}}></div> : <div className="flex flex-col items-center justify-center h-full text-slate-400"><Icon name="cpu" size={64} className="mb-4 opacity-50"/><p className="text-xl font-bold">Sonuç Ekranı</p></div>}
                         </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const Notebook = ({ goBack }) => {
-            const [note, setNote] = useState(localStorage.getItem('lgs_notes') || "");
-            return (
-                <div className="h-full bg-amber-50 p-6 md:p-10 flex flex-col anim-fade">
-                     <div className="flex items-center gap-4 mb-6">
-                        <button onClick={goBack} className="bg-white p-4 rounded-xl shadow"><Icon name="arrow-left" size={24}/></button>
-                        <h2 className="text-3xl font-black text-amber-800">Akıllı Defter</h2>
-                    </div>
-                    <div className="flex-1 max-w-5xl mx-auto w-full">
-                         <textarea value={note} onChange={e=>{setNote(e.target.value); localStorage.setItem('lgs_notes',e.target.value)}} className="w-full h-full bg-white p-8 rounded-[2rem] shadow-xl border-4 border-amber-200 outline-none text-xl leading-relaxed text-slate-700 resize-none font-medium font-handwriting" placeholder="Ders notlarını buraya karala şampiyon..."></textarea>
-                    </div>
-                </div>
-            )
-        };
-
-        const HistoryChat = ({ apiKey, goBack }) => {
-            const [msgs, setMsgs] = useState([]);
-            const [input, setInput] = useState("");
-            const [hero, setHero] = useState(null);
-            const [loading, setLoading] = useState(false);
-            const scrollRef = useRef(null);
-
-            const heroes = [
-                { name: 'Atatürk', desc: 'Kurucu Lider' },
-                { name: 'Fatih Sultan Mehmet', desc: 'İstanbul Fatihi' },
-                { name: 'Einstein', desc: 'Fizik Dehası' },
-                { name: 'Aziz Sancar', desc: 'Nobel Ödüllü' }
-            ];
-
-            useEffect(() => { if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [msgs]);
-
-            const send = async () => {
-                if(!input || !apiKey) return;
-                setMsgs(p => [...p, {role:'user', text:input}]);
-                setInput(""); setLoading(true);
-                try {
-                    const prompt = `Sen ${hero.name}'sin. Karşındaki 8. sınıf öğrencisi. Rol yap. Soru: ${input}`;
-                    const res = await callGoogle(apiKey, DEFAULT_MODEL, prompt, 'text');
-                    setMsgs(p => [...p, {role:'model', text:res}]);
-                } catch(e) { alert("Hata"); } finally { setLoading(false); }
-            };
-
-            if(!hero) return (
-                <div className="h-full bg-slate-50 p-6 md:p-10 anim-fade">
-                    <div className="flex items-center gap-4 mb-8"><button onClick={goBack} className="bg-white p-4 rounded-xl shadow"><Icon name="arrow-left" size={24}/></button><h2 className="text-3xl font-black text-slate-800">Tarihsel Sohbet</h2></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-                        {heroes.map(h => (
-                            <button key={h.name} onClick={()=>setHero(h)} className="bg-white p-8 rounded-[2rem] shadow-lg flex items-center gap-6 hover:bg-slate-50 text-left border-2 border-slate-100 hover:border-orange-200 transition group hover:scale-[1.02]">
-                                <div className="bg-orange-100 p-5 rounded-2xl text-orange-600 group-hover:scale-110 transition"><Icon name="user" size={40}/></div>
-                                <div><div className="font-bold text-2xl text-slate-800">{h.name}</div><div className="text-lg text-slate-500">{h.desc}</div></div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            );
-
-            return (
-                <div className="h-full bg-slate-50 p-4 md:p-8 flex flex-col anim-fade">
-                    <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white p-5 rounded-t-[2rem] flex justify-between items-center shadow-lg max-w-4xl mx-auto w-full">
-                        <div className="font-bold text-xl flex items-center gap-3"><div className="bg-white/20 p-2 rounded-full"><Icon name="user"/></div>{hero.name}</div>
-                        <button onClick={()=>setHero(null)} className="text-sm bg-white/20 px-4 py-2 rounded-xl font-bold hover:bg-white/30 transition">Sohbeti Bitir</button>
-                    </div>
-                    <div className="flex-1 bg-white border-x-2 border-slate-100 overflow-y-auto p-6 space-y-4 max-w-4xl mx-auto w-full" ref={scrollRef}>
-                        {msgs.map((m,i) => <div key={i} className={`p-4 rounded-2xl max-w-[85%] text-lg shadow-sm ${m.role==='user'?'bg-orange-100 ml-auto text-orange-900 rounded-br-none':'bg-slate-100 mr-auto text-slate-800 rounded-bl-none border border-slate-200'}`}>{m.text}</div>)}
-                        {loading && <div className="text-sm text-slate-400 animate-pulse pl-4">Yazıyor...</div>}
-                    </div>
-                    <div className="p-4 bg-white rounded-b-[2rem] border-x-2 border-b-2 border-slate-100 flex gap-3 max-w-4xl mx-auto w-full shadow-lg">
-                        <input value={input} onChange={e=>setInput(e.target.value)} className="flex-1 bg-slate-100 rounded-xl px-4 py-3 text-lg outline-none focus:ring-2 ring-orange-200 transition" placeholder="Sorunu sor..." onKeyDown={e=>e.key==='Enter'&&send()}/>
-                        <button onClick={send} className="bg-orange-600 text-white p-3 rounded-xl hover:bg-orange-700 transition"><Icon name="send" size={24}/></button>
-                    </div>
-                </div>
-            );
-        };
-
-        const QuizMode = ({ apiKey, goBack }) => {
-            const [q, setQ] = useState(null);
-            const [loading, setLoading] = useState(false);
-            const [showAns, setShowAns] = useState(false);
-
-            const getQ = async () => {
-                if(!apiKey) return; setLoading(true); setShowAns(false); setQ(null);
-                try {
-                    const res = await callGoogle(apiKey, DEFAULT_MODEL, "LGS için 1 adet zor, yeni nesil, çoktan seçmeli Matematik veya Fen sorusu üret. JSON: {q:'soru', opts:['A','B','C','D'], ans:0, exp:'açıklama'}", 'json');
-                    setQ(res);
-                } catch(e) { alert("Hata"); } finally { setLoading(false); }
-            };
-
-            return (
-                <div className="h-full bg-slate-50 p-6 md:p-10 flex flex-col anim-fade">
-                    <div className="flex items-center gap-4 mb-8"><button onClick={goBack} className="bg-white p-4 rounded-xl shadow"><Icon name="arrow-left" size={24}/></button><h2 className="text-3xl font-black text-slate-800">Kendini Test Et</h2></div>
-                    <div className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full">
-                        {!q ? (
-                            <button onClick={getQ} disabled={loading} className="bg-indigo-600 text-white px-10 py-6 rounded-3xl font-bold text-2xl shadow-2xl hover:scale-105 transition flex items-center gap-3">{loading ? <div className="loader w-8 h-8 border-white"></div> : <><Icon name="play-circle" size={32}/> Soru Getir</>}</button>
-                        ) : (
-                            <div className="w-full bg-white p-8 rounded-[2rem] shadow-2xl border border-slate-100 overflow-y-auto max-h-full">
-                                <div className="font-bold text-xl md:text-2xl mb-8 leading-relaxed text-slate-800">{q.q}</div>
-                                <div className="space-y-4 mb-8">
-                                    {q.opts.map((o,i) => (
-                                        <button key={i} onClick={()=>setShowAns(true)} disabled={showAns} className={`w-full text-left p-5 rounded-2xl border-2 text-lg md:text-xl font-medium transition ${showAns ? (i===q.ans?'border-emerald-500 bg-emerald-50 text-emerald-800':'border-red-100 opacity-50') : 'border-slate-100 hover:border-indigo-300 hover:bg-slate-50'}`}>{o}</button>
-                                    ))}
-                                </div>
-                                {showAns && (
-                                    <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 anim-fade">
-                                        <div className="font-bold text-indigo-700 mb-2 text-lg flex items-center gap-2"><Icon name="info"/> Çözüm:</div>
-                                        <p className="text-slate-700 text-lg leading-relaxed">{q.exp}</p>
-                                        <button onClick={getQ} className="mt-6 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg transition">Sıradaki Soru 🚀</button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
                 </div>
             );
@@ -500,24 +486,38 @@
         };
 
         const App = () => {
-            const [view, setView] = useState('dashboard');
+            const [view, setView] = useState('dashboard'); // dashboard, syllabus, quiz_runner, solver, planner
             const [apiKey, setApiKey] = useState(localStorage.getItem('lgs_key'));
             const [modal, setModal] = useState(null);
             
-            // LGS Tahmini Tarih: 7 Haziran 2026
+            // Quiz Runner State
+            const [quizTopic, setQuizTopic] = useState(null);
+            const [quizConfig, setQuizConfig] = useState(null);
+
             const daysLeft = Math.ceil((new Date('2026-06-07') - new Date()) / (1000 * 60 * 60 * 24));
+
+            const startQuiz = (topic) => {
+                setQuizTopic(topic);
+                setQuizConfig(null);
+                setView('quiz_runner');
+            };
+
+            const startTrial = (config) => {
+                setQuizConfig(config);
+                setQuizTopic(null);
+                setView('quiz_runner');
+            };
 
             return (
                 <div className="h-full w-full relative">
-                    {apiKey && <AICoach apiKey={apiKey} />}
                     {modal && <Modal data={modal} close={()=>setModal(null)} />}
                     
-                    {view === 'dashboard' && <Dashboard apiKey={apiKey} setApiKey={setApiKey} goView={setView} daysLeft={daysLeft} />}
-                    {view === 'syllabus' && <Syllabus apiKey={apiKey} goBack={()=>setView('dashboard')} openModal={setModal} />}
-                    {view === 'notebook' && <Notebook goBack={()=>setView('dashboard')} />}
-                    {view === 'history' && <HistoryChat apiKey={apiKey} goBack={()=>setView('dashboard')} />}
-                    {view === 'quiz' && <QuizMode apiKey={apiKey} goBack={()=>setView('dashboard')} />}
-                    {['solver', 'planner', 'compare', 'guidance'].includes(view) && <SimpleTool type={view} apiKey={apiKey} goBack={()=>setView('dashboard')} />}
+                    {view === 'dashboard' && <Dashboard apiKey={apiKey} setApiKey={setApiKey} goView={setView} daysLeft={daysLeft} startTrial={startTrial} />}
+                    {view === 'syllabus' && <Syllabus apiKey={apiKey} goBack={()=>setView('dashboard')} openModal={setModal} startQuiz={startQuiz} />}
+                    
+                    {view === 'quiz_runner' && <QuizRunner apiKey={apiKey} topic={quizTopic} config={quizConfig} goBack={()=>setView('dashboard')} />}
+                    
+                    {['solver', 'planner'].includes(view) && <SimpleTool type={view} apiKey={apiKey} goBack={()=>setView('dashboard')} />}
                 </div>
             );
         };
