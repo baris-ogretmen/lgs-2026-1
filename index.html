@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LGS Pro Akademi - 2026 Tayfa</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.min.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#0ea5e9',
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        brand: ['Fredoka', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Outfit', sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        .brand { font-family: 'Fredoka', sans-serif; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        
+        /* Loader */
+        .loader { border: 4px solid #e2e8f0; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .anim-fade { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Metin Stilleri - Akıllı Tahta Okunabilirliği İçin */
+        .readable-text strong { color: #4f46e5; font-weight: 800; }
+        .readable-text em { background-color: #fff7ed; color: #c2410c; font-style: normal; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
+        .readable-text ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1.5rem; }
+        .readable-text h3 { color: #1e293b; font-size: 1.5rem; font-weight: 800; margin-top: 2rem; border-bottom: 3px solid #e2e8f0; padding-bottom: 0.5rem; }
+        .readable-text p { margin-bottom: 1rem; line-height: 1.7; font-size: 1.1rem; }
+        
+        /* Kart */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-screen w-full flex items-center justify-center bg-slate-50">
+        <div class="text-center">
+            <div class="loader mx-auto mb-4"></div>
+            <h2 class="text-xl font-bold text-slate-700">LGS Pro Yükleniyor...</h2>
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- SABİT VERİLER ---
+        const DEFAULT_MODEL = "gemini-2.5-flash-preview-09-2025";
+        
+        const CURRICULUM = {
+            MATEMATIK: { title: "Matematik", color: "indigo", icon: "calculator", units: [
+                { id: 1, title: "Çarpanlar ve Katlar", topics: ["Çarpanlar ve Katlar", "EBOB - EKOK"] },
+                { id: 2, title: "Üslü İfadeler", topics: ["Üslü İfadeler", "Bilimsel Gösterim"] },
+                { id: 3, title: "Kareköklü İfadeler", topics: ["Kareköklü İfadeler", "Gerçek Sayılar"] },
+                { id: 4, title: "Veri Analizi", topics: ["Grafik Türleri", "Veri Yorumlama"] },
+                { id: 5, title: "Olasılık", topics: ["Basit Olayların Olasılığı"] },
+                { id: 6, title: "Cebirsel İfadeler", topics: ["Cebirsel İfadeler", "Özdeşlikler"] }
+            ]},
+            FEN: { title: "Fen Bilimleri", color: "emerald", icon: "flask", units: [
+                { id: 1, title: "Mevsimler ve İklim", topics: ["Mevsimlerin Oluşumu", "İklim ve Hava"] },
+                { id: 2, title: "DNA ve Genetik Kod", topics: ["DNA", "Kalıtım", "Mutasyon", "Biyoteknoloji"] },
+                { id: 3, title: "Basınç", topics: ["Katı Basıncı", "Sıvı ve Gaz Basıncı"] },
+                { id: 4, title: "Madde ve Endüstri", topics: ["Periyodik Sistem", "Asitler ve Bazlar"] }
+            ]},
+            TURKCE: { title: "Türkçe", color: "rose", icon: "book", units: [
+                { id: 1, title: "Sözcük ve Cümle", topics: ["Sözcükte Anlam", "Cümlede Anlam"] },
+                { id: 2, title: "Paragraf", topics: ["Paragrafın Anlamı", "Sözel Mantık"] },
+                { id: 3, title: "Dil Bilgisi", topics: ["Fiilimsiler", "Cümlenin Ögeleri"] },
+                { id: 4, title: "Yazım - Noktalama", topics: ["Yazım Kuralları", "Noktalama İşaretleri"] }
+            ]},
+            INKILAP: { title: "İnkılap Tarihi", color: "orange", icon: "scroll", units: [
+                { id: 1, title: "Bir Kahraman Doğuyor", topics: ["Mustafa Kemal'in Hayatı"] },
+                { id: 2, title: "Milli Uyanış", topics: ["I. Dünya Savaşı", "Cemiyetler"] },
+                { id: 3, title: "Ya İstiklal Ya Ölüm", topics: ["Cepheler", "Lozan Antlaşması"] }
+            ]},
+            INGILIZCE: { title: "İngilizce", color: "sky", icon: "languages", units: [
+                { id: 1, title: "Friendship", topics: ["Accepting and Refusing"] },
+                { id: 2, title: "Teen Life", topics: ["Daily Routines"] },
+                { id: 3, title: "The Kitchen", topics: ["Cooking Processes"] }
+            ]},
+            DIN: { title: "Din Kültürü", color: "teal", icon: "moon", units: [
+                { id: 1, title: "Kader İnancı", topics: ["Kader ve Kaza"] },
+                { id: 2, title: "Zekat ve Sadaka", topics: ["Zekat İbadeti"] }
+            ]}
+        };
+
+        const THEME_COLORS = {
+            MATEMATIK: "bg-indigo-50 text-indigo-900 border-indigo-200",
+            FEN: "bg-emerald-50 text-emerald-900 border-emerald-200",
+            TURKCE: "bg-rose-50 text-rose-900 border-rose-200",
+            INKILAP: "bg-orange-50 text-orange-900 border-orange-200",
+            INGILIZCE: "bg-sky-50 text-sky-900 border-sky-200",
+            DIN: "bg-teal-50 text-teal-900 border-teal-200"
+        };
+        
+        const BUTTON_COLORS = {
+            MATEMATIK: "bg-indigo-600 hover:bg-indigo-700",
+            FEN: "bg-emerald-600 hover:bg-emerald-700",
+            TURKCE: "bg-rose-600 hover:bg-rose-700",
+            INKILAP: "bg-orange-600 hover:bg-orange-700",
+            INGILIZCE: "bg-sky-600 hover:bg-sky-700",
+            DIN: "bg-teal-600 hover:bg-teal-700"
+        };
+
+        // --- YARDIMCI FONKSİYONLAR ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
+            return <i data-lucide={name} className={className} style={{ width: size, height: size, display: 'inline-block' }}></i>;
+        };
+
+        const callGoogle = async (apiKey, modelName, input, type = 'json') => {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+            const contents = Array.isArray(input) ? input : [{ parts: [{ text: input }] }];
+            try {
+                const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents }) });
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error("Boş Cevap");
+                if (type === 'html' || type === 'text') return text;
+                text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const s = text.indexOf('['); const e = text.lastIndexOf(']');
+                if (s !== -1 && e !== -1) text = text.substring(s, e+1);
+                return JSON.parse(text);
+            } catch (e) { console.error(e); throw e; }
+        };
+
+        // --- ALT BİLEŞENLER ---
+
+        const AICoach = ({ apiKey }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const [messages, setMessages] = useState([{ role: 'model', text: 'Selam LGS Tayfa! Ben senin koçunum. Nasıl gidiyor çalışmalar? 👋' }]);
+            const [input, setInput] = useState("");
+            const [loading, setLoading] = useState(false);
+            const scrollRef = useRef(null);
+
+            useEffect(() => { if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, isOpen]);
+
+            const send = async () => {
+                if (!input.trim() || !apiKey) return;
+                const userMsg = input.trim();
+                setMessages(p => [...p, { role: 'user', text: userMsg }]);
+                setInput(""); setLoading(true);
+                try {
+                    const history = messages.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+                    history.push({ role: 'user', parts: [{ text: userMsg + " (LGS öğrencisine uygun, kısa, motive edici, emojili cevap ver)" }] });
+                    const res = await callGoogle(apiKey, DEFAULT_MODEL, history, 'text');
+                    setMessages(p => [...p, { role: 'model', text: res }]);
+                } catch(e) { setMessages(p => [...p, { role: 'model', text: "Hata oluştu kanka :(" }]); } 
+                finally { setLoading(false); }
+            };
+
+            return (
+                <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+                    {isOpen && (
+                        <div className="bg-white w-80 h-96 rounded-2xl shadow-2xl border border-indigo-100 flex flex-col mb-4 overflow-hidden">
+                            <div className="bg-indigo-600 p-3 text-white flex justify-between font-bold"><span>🤖 LGS Koçun</span><button onClick={()=>setIsOpen(false)}>X</button></div>
+                            <div className="flex-1 overflow-auto p-3 space-y-2 bg-slate-50" ref={scrollRef}>
+                                {messages.map((m, i) => <div key={i} className={`p-2 rounded-xl text-sm ${m.role==='user'?'bg-indigo-100 ml-auto':'bg-white border mr-auto'}`} style={{maxWidth:'85%'}}>{m.text}</div>)}
+                                {loading && <div className="text-xs text-slate-400 p-2">Yazıyor...</div>}
+                            </div>
+                            <div className="p-2 border-t flex gap-2"><input value={input} onChange={e=>setInput(e.target.value)} className="flex-1 bg-slate-100 rounded-lg px-2 text-sm" placeholder="Mesaj yaz..." onKeyDown={e=>e.key==='Enter'&&send()}/><button onClick={send} className="p-2 bg-indigo-600 text-white rounded-lg"><Icon name="send" size={16}/></button></div>
+                        </div>
+                    )}
+                    <button onClick={()=>setIsOpen(!isOpen)} className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:scale-110 transition border-4 border-white flex items-center justify-center">
+                        {isOpen ? <Icon name="x"/> : <Icon name="message-circle"/>}
+                    </button>
+                </div>
+            );
+        };
+
+        const Dashboard = ({ apiKey, setApiKey, goView, daysLeft }) => {
+            const [keyInput, setKeyInput] = useState(apiKey || "");
+            
+            return (
+                <div className="flex flex-col items-center p-4 md:p-8 max-w-7xl mx-auto pb-24 anim-fade h-full overflow-y-auto">
+                    <div className="text-center mb-8 md:mb-12">
+                        <div className="inline-block p-4 md:p-5 bg-white rounded-full shadow-lg mb-4 border-4 border-indigo-50"><Icon name="rocket" size={48} className="text-indigo-600 w-12 h-12 md:w-16 md:h-16"/></div>
+                        <h1 className="text-4xl md:text-6xl font-black text-slate-800 brand mb-2 tracking-tight">LGS PRO AKADEMİ</h1>
+                        <p className="text-indigo-600 font-bold tracking-widest text-sm md:text-lg">2026 EFSANE TAYFA</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 w-full mb-8 md:mb-12">
+                        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 md:p-10 text-white shadow-xl relative overflow-hidden h-52 md:h-64 flex flex-col justify-center transform transition hover:scale-[1.01]">
+                            <div className="text-indigo-200 text-sm md:text-base font-bold uppercase tracking-wider mb-2">Büyük Güne Kalan</div>
+                            <div className="text-6xl md:text-8xl font-black">{daysLeft}</div>
+                            <div className="text-xl md:text-2xl font-bold mt-1">GÜN</div>
+                            <Icon name="timer" className="absolute -right-8 -bottom-8 opacity-20 rotate-12 w-32 h-32 md:w-48 md:h-48 text-white"/>
+                        </div>
+                        
+                        <div className="bg-white rounded-3xl p-6 md:p-10 shadow-xl border border-slate-100 h-52 md:h-64 flex flex-col justify-center relative overflow-hidden">
+                            {!apiKey ? (
+                                <div className="z-10 w-full max-w-md mx-auto">
+                                    <div className="flex items-center gap-2 text-orange-600 font-bold mb-3 md:mb-4 text-lg md:text-xl"><Icon name="key" size={24}/> Anahtar Gerekli</div>
+                                    <p className="text-xs md:text-sm text-slate-500 mb-4 font-medium">Sistemi kullanmak için Google Gemini API Anahtarını yapıştır:</p>
+                                    <div className="flex gap-2">
+                                        <input value={keyInput} onChange={e=>setKeyInput(e.target.value)} className="flex-1 border-2 border-slate-200 rounded-xl px-4 py-3 text-sm md:text-base outline-none focus:border-indigo-500 transition" placeholder="AIzaSy..."/>
+                                        <button onClick={()=>{if(keyInput){localStorage.setItem('lgs_key',keyInput); setApiKey(keyInput);}}} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold text-sm md:text-base hover:bg-indigo-700 active:scale-95 transition">KAYDET</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="z-10 text-center w-full">
+                                    <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-6 py-3 rounded-full font-bold mb-6 text-lg"><Icon name="check-circle" size={24}/> Sistem Aktif</div>
+                                    <button onClick={()=>setApiKey("")} className="block w-full text-sm md:text-base text-slate-400 hover:text-red-500 underline font-medium">Anahtarı Değiştir</button>
+                                </div>
+                            )}
+                            <div className="absolute top-0 right-0 w-32 h-32 md:w-48 md:h-48 bg-orange-50 rounded-full -mr-10 -mt-10 z-0"></div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 w-full">
+                        {[
+                            { id: 'syllabus', title: 'DERSLER', icon: 'book-open', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+                            { id: 'planner', title: 'PROGRAM', icon: 'calendar', color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
+                            { id: 'solver', title: 'SORU ÇÖZ', icon: 'help-circle', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+                            { id: 'compare', title: 'KIYASLA', icon: 'scale', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
+                            { id: 'history', title: 'TARİHSEL', icon: 'scroll', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+                            { id: 'guidance', title: 'REHBERLİK', icon: 'heart-handshake', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
+                            { id: 'notebook', title: 'DEFTER', icon: 'edit-3', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+                            { id: 'quiz', title: 'TEST', icon: 'check-square', color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100' }
+                        ].map(item => (
+                            <button key={item.id} onClick={()=>goView(item.id)} className={`bg-white p-4 md:p-6 rounded-3xl shadow-lg hover:shadow-2xl hover:-translate-y-2 transition border-2 ${item.border} flex flex-col items-center gap-3 md:gap-4 group h-32 md:h-48 justify-center`}>
+                                <div className={`p-3 md:p-5 rounded-2xl ${item.bg} ${item.color} group-hover:scale-110 transition duration-300`}>
+                                    <Icon name={item.icon} className="w-8 h-8 md:w-10 md:h-10"/>
+                                </div>
+                                <span className="font-bold text-slate-700 text-sm md:text-lg tracking-wide">{item.title}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const Syllabus = ({ apiKey, goBack, openModal }) => {
+            const [tab, setTab] = useState('MATEMATIK');
+            const data = CURRICULUM[tab];
+            
+            const handleAction = async (action, topic) => {
+                if(!apiKey) return alert("Önce anahtarı girmelisin şampiyon!");
+                openModal({ type: 'loading' });
+                try {
+                    let prompt = "";
+                    let type = "html";
+                    if(action === 'analyze') prompt = `Konu: ${topic}. 8. Sınıf LGS için analiz et. Zorluk, çıkma ihtimali ve püf noktaları. HTML formatında şık bir özet.`;
+                    else if(action === 'hap') prompt = `Konu: ${topic}. LGS için en önemli 5 hap bilgiyi maddeler halinde yaz. HTML ul-li formatı.`;
+                    else if(action === 'mnemonics') prompt = `Konu: ${topic}. Akılda kalıcı kodlamalar, hikayeler veya şifreler üret. HTML formatı.`;
+                    
+                    const res = await callGoogle(apiKey, DEFAULT_MODEL, prompt, type);
+                    openModal({ type: 'content', title: topic, content: res });
+                } catch(e) { openModal(null); alert("Hata: " + e.message); }
+            };
+
+            return (
+                <div className="h-full flex flex-col bg-slate-50 anim-fade">
+                    <div className="bg-white p-4 md:p-6 shadow-sm flex items-center gap-4 z-10 sticky top-0">
+                        <button onClick={goBack} className="bg-slate-100 p-3 rounded-xl hover:bg-slate-200"><Icon name="arrow-left" size={24}/></button>
+                        <h2 className="font-bold text-xl md:text-2xl text-slate-800">Konu Avcısı</h2>
+                    </div>
+                    <div className="p-4 md:p-6 overflow-x-auto whitespace-nowrap bg-white border-b hide-scroll">
+                        {Object.keys(CURRICULUM).map(key => (
+                            <button key={key} onClick={()=>setTab(key)} className={`px-6 py-3 rounded-full font-bold mr-3 text-sm md:text-base border-2 transition shadow-sm ${tab===key ? BUTTON_COLORS[key] + ' text-white border-transparent scale-105' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+                                {CURRICULUM[key].title}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 pb-24">
+                        {data.units.map(u => (
+                            <div key={u.id} className={`rounded-[2rem] border-2 overflow-hidden shadow-sm ${THEME_COLORS[tab]}`}>
+                                <div className="p-5 font-bold border-b border-inherit bg-white/60 flex items-center gap-3 text-lg">
+                                    <span className={`w-8 h-8 rounded-full text-white flex items-center justify-center text-sm shadow ${BUTTON_COLORS[tab].split(' ')[0]}`}>{u.id}</span>
+                                    {u.title}
+                                </div>
+                                <div className="divide-y divide-inherit bg-white/30">
+                                    {u.topics.map(t => (
+                                        <div key={t} className="p-5 hover:bg-white transition duration-300">
+                                            <div className="font-bold mb-4 text-lg md:text-xl text-slate-800">{t}</div>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                <button onClick={()=>handleAction('analyze', t)} className="bg-white border-2 border-slate-200 py-3 rounded-xl text-sm font-bold hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition shadow-sm flex items-center justify-center gap-2"><Icon name="bar-chart-2" size={18}/> Analiz</button>
+                                                <button onClick={()=>handleAction('hap', t)} className="bg-white border-2 border-slate-200 py-3 rounded-xl text-sm font-bold hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600 transition shadow-sm flex items-center justify-center gap-2"><Icon name="pill" size={18}/> Hap Bilgi</button>
+                                                <button onClick={()=>handleAction('mnemonics', t)} className="bg-white border-2 border-slate-200 py-3 rounded-xl text-sm font-bold hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition shadow-sm flex items-center justify-center gap-2"><Icon name="lightbulb" size={18}/> Şifrele</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const SimpleTool = ({ apiKey, goBack, type }) => {
+            const [input, setInput] = useState("");
+            const [res, setRes] = useState(null);
+            const [loading, setLoading] = useState(false);
+
+            const run = async () => {
+                if(!apiKey || !input) return;
+                setLoading(true);
+                try {
+                    let prompt = "";
+                    if(type === 'solver') prompt = `LGS Öğrencisiyim. Şu soruyu benim için adım adım, anlaşılır ve eğlenceli şekilde çöz: ${input}. HTML formatında çıktı ver.`;
+                    else if(type === 'planner') prompt = `Günde ${input} saat çalışabilirim. Bana 8. sınıf LGS için haftalık ders çalışma programı yap. HTML tablo formatında.`;
+                    else if(type === 'compare') prompt = `Şu iki kavramı karşılaştır: ${input}. HTML formatında tablo yap.`;
+                    else if(type === 'guidance') prompt = `Şu anki ruh halim: ${input}. Bana bir rehber öğretmen gibi tavsiye ver. HTML formatı.`;
+                    
+                    const result = await callGoogle(apiKey, DEFAULT_MODEL, prompt, 'html');
+                    setRes(result);
+                } catch(e) { alert("Hata: " + e.message); } finally { setLoading(false); }
+            };
+
+            const titles = { solver: 'Soru Çözücü', planner: 'Akıllı Program', compare: 'Kıyasla', guidance: 'Rehberlik' };
+            const placeholders = { solver: 'Sorunu buraya yapıştır...', planner: 'Günde kaç saat çalışırsın? (Sadece sayı)', compare: 'Örn: Mitoz ve Mayoz', guidance: 'Nasıl hissediyorsun?' };
+
+            return (
+                <div className="h-full bg-slate-50 p-6 md:p-10 flex flex-col anim-fade">
+                    <div className="flex items-center gap-4 mb-8">
+                        <button onClick={goBack} className="bg-white p-4 rounded-xl shadow hover:bg-slate-100"><Icon name="arrow-left" size={24}/></button>
+                        <h2 className="text-3xl font-black text-slate-800">{titles[type]}</h2>
+                    </div>
+                    <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-xl border border-slate-100 flex flex-col h-full overflow-hidden max-w-5xl mx-auto w-full">
+                        <div className="mb-6">
+                            <textarea value={input} onChange={e=>setInput(e.target.value)} className="w-full p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-indigo-500 h-40 resize-none text-lg md:text-xl" placeholder={placeholders[type]}></textarea>
+                            <button onClick={run} disabled={loading} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold mt-4 shadow-lg hover:bg-indigo-700 transition text-lg md:text-xl flex items-center justify-center gap-2">
+                                {loading ? "Yapay Zeka Çalışıyor..." : <><Icon name="zap"/> Gönder Gelsin</>}
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto bg-slate-50 rounded-2xl p-6 border border-slate-200 shadow-inner">
+                            {res ? <div className="prose prose-lg readable-text max-w-none" dangerouslySetInnerHTML={{__html: res}}></div> : <div className="flex flex-col items-center justify-center h-full text-slate-400"><Icon name="cpu" size={64} className="mb-4 opacity-50"/><p className="text-xl font-bold">Sonuç Ekranı</p></div>}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Notebook = ({ goBack }) => {
+            const [note, setNote] = useState(localStorage.getItem('lgs_notes') || "");
+            return (
+                <div className="h-full bg-amber-50 p-6 md:p-10 flex flex-col anim-fade">
+                     <div className="flex items-center gap-4 mb-6">
+                        <button onClick={goBack} className="bg-white p-4 rounded-xl shadow"><Icon name="arrow-left" size={24}/></button>
+                        <h2 className="text-3xl font-black text-amber-800">Akıllı Defter</h2>
+                    </div>
+                    <div className="flex-1 max-w-5xl mx-auto w-full">
+                         <textarea value={note} onChange={e=>{setNote(e.target.value); localStorage.setItem('lgs_notes',e.target.value)}} className="w-full h-full bg-white p-8 rounded-[2rem] shadow-xl border-4 border-amber-200 outline-none text-xl leading-relaxed text-slate-700 resize-none font-medium font-handwriting" placeholder="Ders notlarını buraya karala şampiyon..."></textarea>
+                    </div>
+                </div>
+            )
+        };
+
+        const HistoryChat = ({ apiKey, goBack }) => {
+            const [msgs, setMsgs] = useState([]);
+            const [input, setInput] = useState("");
+            const [hero, setHero] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const scrollRef = useRef(null);
+
+            const heroes = [
+                { name: 'Atatürk', desc: 'Kurucu Lider' },
+                { name: 'Fatih Sultan Mehmet', desc: 'İstanbul Fatihi' },
+                { name: 'Einstein', desc: 'Fizik Dehası' },
+                { name: 'Aziz Sancar', desc: 'Nobel Ödüllü' }
+            ];
+
+            useEffect(() => { if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [msgs]);
+
+            const send = async () => {
+                if(!input || !apiKey) return;
+                setMsgs(p => [...p, {role:'user', text:input}]);
+                setInput(""); setLoading(true);
+                try {
+                    const prompt = `Sen ${hero.name}'sin. Karşındaki 8. sınıf öğrencisi. Rol yap. Soru: ${input}`;
+                    const res = await callGoogle(apiKey, DEFAULT_MODEL, prompt, 'text');
+                    setMsgs(p => [...p, {role:'model', text:res}]);
+                } catch(e) { alert("Hata"); } finally { setLoading(false); }
+            };
+
+            if(!hero) return (
+                <div className="h-full bg-slate-50 p-6 md:p-10 anim-fade">
+                    <div className="flex items-center gap-4 mb-8"><button onClick={goBack} className="bg-white p-4 rounded-xl shadow"><Icon name="arrow-left" size={24}/></button><h2 className="text-3xl font-black text-slate-800">Tarihsel Sohbet</h2></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+                        {heroes.map(h => (
+                            <button key={h.name} onClick={()=>setHero(h)} className="bg-white p-8 rounded-[2rem] shadow-lg flex items-center gap-6 hover:bg-slate-50 text-left border-2 border-slate-100 hover:border-orange-200 transition group hover:scale-[1.02]">
+                                <div className="bg-orange-100 p-5 rounded-2xl text-orange-600 group-hover:scale-110 transition"><Icon name="user" size={40}/></div>
+                                <div><div className="font-bold text-2xl text-slate-800">{h.name}</div><div className="text-lg text-slate-500">{h.desc}</div></div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="h-full bg-slate-50 p-4 md:p-8 flex flex-col anim-fade">
+                    <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white p-5 rounded-t-[2rem] flex justify-between items-center shadow-lg max-w-4xl mx-auto w-full">
+                        <div className="font-bold text-xl flex items-center gap-3"><div className="bg-white/20 p-2 rounded-full"><Icon name="user"/></div>{hero.name}</div>
+                        <button onClick={()=>setHero(null)} className="text-sm bg-white/20 px-4 py-2 rounded-xl font-bold hover:bg-white/30 transition">Sohbeti Bitir</button>
+                    </div>
+                    <div className="flex-1 bg-white border-x-2 border-slate-100 overflow-y-auto p-6 space-y-4 max-w-4xl mx-auto w-full" ref={scrollRef}>
+                        {msgs.map((m,i) => <div key={i} className={`p-4 rounded-2xl max-w-[85%] text-lg shadow-sm ${m.role==='user'?'bg-orange-100 ml-auto text-orange-900 rounded-br-none':'bg-slate-100 mr-auto text-slate-800 rounded-bl-none border border-slate-200'}`}>{m.text}</div>)}
+                        {loading && <div className="text-sm text-slate-400 animate-pulse pl-4">Yazıyor...</div>}
+                    </div>
+                    <div className="p-4 bg-white rounded-b-[2rem] border-x-2 border-b-2 border-slate-100 flex gap-3 max-w-4xl mx-auto w-full shadow-lg">
+                        <input value={input} onChange={e=>setInput(e.target.value)} className="flex-1 bg-slate-100 rounded-xl px-4 py-3 text-lg outline-none focus:ring-2 ring-orange-200 transition" placeholder="Sorunu sor..." onKeyDown={e=>e.key==='Enter'&&send()}/>
+                        <button onClick={send} className="bg-orange-600 text-white p-3 rounded-xl hover:bg-orange-700 transition"><Icon name="send" size={24}/></button>
+                    </div>
+                </div>
+            );
+        };
+
+        const QuizMode = ({ apiKey, goBack }) => {
+            const [q, setQ] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [showAns, setShowAns] = useState(false);
+
+            const getQ = async () => {
+                if(!apiKey) return; setLoading(true); setShowAns(false); setQ(null);
+                try {
+                    const res = await callGoogle(apiKey, DEFAULT_MODEL, "LGS için 1 adet zor, yeni nesil, çoktan seçmeli Matematik veya Fen sorusu üret. JSON: {q:'soru', opts:['A','B','C','D'], ans:0, exp:'açıklama'}", 'json');
+                    setQ(res);
+                } catch(e) { alert("Hata"); } finally { setLoading(false); }
+            };
+
+            return (
+                <div className="h-full bg-slate-50 p-6 md:p-10 flex flex-col anim-fade">
+                    <div className="flex items-center gap-4 mb-8"><button onClick={goBack} className="bg-white p-4 rounded-xl shadow"><Icon name="arrow-left" size={24}/></button><h2 className="text-3xl font-black text-slate-800">Kendini Test Et</h2></div>
+                    <div className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full">
+                        {!q ? (
+                            <button onClick={getQ} disabled={loading} className="bg-indigo-600 text-white px-10 py-6 rounded-3xl font-bold text-2xl shadow-2xl hover:scale-105 transition flex items-center gap-3">{loading ? <div className="loader w-8 h-8 border-white"></div> : <><Icon name="play-circle" size={32}/> Soru Getir</>}</button>
+                        ) : (
+                            <div className="w-full bg-white p-8 rounded-[2rem] shadow-2xl border border-slate-100 overflow-y-auto max-h-full">
+                                <div className="font-bold text-xl md:text-2xl mb-8 leading-relaxed text-slate-800">{q.q}</div>
+                                <div className="space-y-4 mb-8">
+                                    {q.opts.map((o,i) => (
+                                        <button key={i} onClick={()=>setShowAns(true)} disabled={showAns} className={`w-full text-left p-5 rounded-2xl border-2 text-lg md:text-xl font-medium transition ${showAns ? (i===q.ans?'border-emerald-500 bg-emerald-50 text-emerald-800':'border-red-100 opacity-50') : 'border-slate-100 hover:border-indigo-300 hover:bg-slate-50'}`}>{o}</button>
+                                    ))}
+                                </div>
+                                {showAns && (
+                                    <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 anim-fade">
+                                        <div className="font-bold text-indigo-700 mb-2 text-lg flex items-center gap-2"><Icon name="info"/> Çözüm:</div>
+                                        <p className="text-slate-700 text-lg leading-relaxed">{q.exp}</p>
+                                        <button onClick={getQ} className="mt-6 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg transition">Sıradaki Soru 🚀</button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const Modal = ({ data, close }) => {
+            if(!data) return null;
+            return (
+                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm anim-fade" onClick={close}>
+                    <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto relative border-4 border-slate-50" onClick={e=>e.stopPropagation()}>
+                        {data.type === 'loading' ? (
+                            <div className="flex flex-col items-center py-12"><div className="loader mb-6 w-12 h-12"></div><p className="font-bold text-slate-500 text-xl animate-pulse">Yapay Zeka Hazırlıyor...</p></div>
+                        ) : (
+                            <>
+                                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                                    <h3 className="text-2xl md:text-3xl font-black text-indigo-700">{data.title}</h3>
+                                    <button onClick={close} className="p-3 bg-slate-100 rounded-full hover:bg-slate-200 transition"><Icon name="x" size={24}/></button>
+                                </div>
+                                <div className="prose prose-lg prose-slate readable-text max-w-none" dangerouslySetInnerHTML={{__html: data.content}}></div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )
+        };
+
+        const App = () => {
+            const [view, setView] = useState('dashboard');
+            const [apiKey, setApiKey] = useState(localStorage.getItem('lgs_key'));
+            const [modal, setModal] = useState(null);
+            
+            // LGS Tahmini Tarih: 7 Haziran 2026
+            const daysLeft = Math.ceil((new Date('2026-06-07') - new Date()) / (1000 * 60 * 60 * 24));
+
+            return (
+                <div className="h-full w-full relative">
+                    {apiKey && <AICoach apiKey={apiKey} />}
+                    {modal && <Modal data={modal} close={()=>setModal(null)} />}
+                    
+                    {view === 'dashboard' && <Dashboard apiKey={apiKey} setApiKey={setApiKey} goView={setView} daysLeft={daysLeft} />}
+                    {view === 'syllabus' && <Syllabus apiKey={apiKey} goBack={()=>setView('dashboard')} openModal={setModal} />}
+                    {view === 'notebook' && <Notebook goBack={()=>setView('dashboard')} />}
+                    {view === 'history' && <HistoryChat apiKey={apiKey} goBack={()=>setView('dashboard')} />}
+                    {view === 'quiz' && <QuizMode apiKey={apiKey} goBack={()=>setView('dashboard')} />}
+                    {['solver', 'planner', 'compare', 'guidance'].includes(view) && <SimpleTool type={view} apiKey={apiKey} goBack={()=>setView('dashboard')} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
